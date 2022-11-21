@@ -18,14 +18,14 @@
 #   Password: '123456'
 #   Port: 3306
 
-### postgres 存储驱动
-#   Driver: 'postgres'
+### kong-gateway-database 存储驱动
+#   Driver: 'kong-gateway-database'
 #   Host: 'localhost'
-#   User: 'postgres'
+#   User: 'kong-gateway-database'
 #   Password: 'mysecretpassword'
 #   Port: '5432'
 
-### 以下配置仅适用于 postgres/mysql 驱动
+### 以下配置仅适用于 kong-gateway-database/mysql 驱动
 #   MaxOpenConns: 500
 #   MaxIdleConns: 500
 #   ConnMaxLifeTime: 5

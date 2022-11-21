@@ -453,6 +453,8 @@ INSERT INTO `ReleaseMessage` (`Message`)
 VALUES
     ('SampleApp+default+application');
 
+UPDATE ApolloConfigDB.ServerConfig SET Value = "http://159.75.237.24:8080/eureka/" WHERE Id = 1;
+
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;

@@ -52,7 +52,7 @@ services:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}    # 设置 Mysql root 用户密码
     privileged: true
     volumes:
-      - ./sql:/docker-entrypoint-initdb.d
+      - ./scripts/sql:/docker-entrypoint-initdb.d
       - ${DATA_PATH_HOST}/mysql:/var/lib/mysql        # 引用 .env 配置中 DATA_PATH_HOST 变量，将宿主机上存放 Mysql 数据的目录挂载到容器中 /var/lib/mysql 目录
     ports:
       - "${MYSQL_PORT}:3306"                          # 设置容器3306端口映射指定宿主机端口
@@ -74,6 +74,54 @@ services:
       - backend
     restart: always
 
+  kong-database:
+    build:
+      context: ./kong-database
+    environment:
+      - TZ=${TZ}
+      - POSTGRES_DB=kong
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    privileged: true
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    networks:
+      - backend
+    restart: always
+
+  kong-gateway:
+    build:
+      context: ./kong-gateway
+    environment:
+      - TZ=${TZ}
+      - KONG_DATABASE=postgres
+      - KONG_PG_HOST=kong-database
+      - KONG_PG_USER=${POSTGRES_USER}
+      - KONG_PG_PASSWORD=${POSTGRES_PASSWORD}
+      - KONG_PASSWORD=${KONG_PASSWORD}
+      - KONG_PROXY_ACCESS_LOG=/dev/stdout
+      - KONG_ADMIN_ACCESS_LOG=/dev/stdout
+      - KONG_PROXY_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_LISTEN=0.0.0.0:8001
+      - KONG_ADMIN_GUI_URL=http://localhost:8002
+    ports:
+      - "8100:8000"
+      - "8443:8443"
+      - "8888:8001"
+      - "8444:8444"
+      - "8090:8002"
+      - "8445:8445"
+      - "8007:8003"
+      - "8004:8004"
+    depends_on:
+      - kong-database
+    networks:
+      - backend
+    restart: always
+
   mysql-manage:
     build:
       context: ./mysql-manage
@@ -89,6 +137,22 @@ services:
       - "${MYSQL_MANAGE_PORT}:80"                         # 设置容器80端口映射指定宿主机端口，用于宿主机访问可视化web
     depends_on: # 依赖容器
       - mysql                                             # 在 Mysql 服务容器启动后启动
+    networks:
+      - backend
+    restart: always
+
+  adminer:
+    build:
+      context: ./adminer
+    environment:
+      - TZ=${TZ}
+      - ADMINER_DESIGN=hydra
+      - ADMINER_DEFAULT_SERVER=mysql
+    ports:
+      - "${ADMINER_PORT}:8080"
+    depends_on:
+      - mysql
+      - kong-database
     networks:
       - backend
     restart: always
@@ -177,15 +241,37 @@ services:
       - backend
     restart: always
 
-  apollo:
-    build:
-      context: ./apollo
-    environment:
-      - TZ=${TZ}
+  apollo-configservice:
+    image: apolloconfig/apollo-configservice:latest
     ports:
       - "8080:8080"
-      - "8070:8070"
-      - "8090:8090"
+    volumes:
+      - "./logs:/opt"
     networks:
       - backend
+
+  openresty:
+    build:
+      context: ./openresty
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./openresty/conf/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf
+      - ./openresty/conf/conf.d:/etc/nginx/conf.d
+      - ./openresty/logs:/usr/local/openresty/nginx/logs
+      - ./openresty/html:/usr/local/openresty/nginx/html
+      - ./openresty/conf/cert:/usr/local/openresty/nginx/cert
+      - ./openresty/run:/var/run/openresty
+      - ./openresty/lua:/usr/local/openresty/nginx/lua
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    links:
+      - mysql-manage
+    networks:
+      - backend
+    stdin_open: true
+    tty: true
     restart: always
+
